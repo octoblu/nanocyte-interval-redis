@@ -7,7 +7,7 @@ class IntervalKue
   constructor: (options={}) ->
     @queue = kue.createQueue()
 
-  subscribeTarget: (groupId, targetId, intervalTime) =>
+  subscribeTarget: (groupId, targetId, intervalTime, cronString) =>
     debug 'subscribeTarget group', groupId, 'target', targetId, 'interval', intervalTime
 
     @unsubscribeTarget groupId, targetId, =>
@@ -16,6 +16,7 @@ class IntervalKue
         "interval/active/#{groupId}": true
         "interval/active/#{targetId}": true
         "interval/time/#{targetId}": intervalTime
+        "interval/cron/#{targetId}": cronString
 
       job = @queue.create('interval', {
           groupId: groupId,
