@@ -11,44 +11,45 @@ class IntervalKue
     debug 'subscribeTarget group', groupId, 'target', targetId, 'interval', intervalTime
 
     @unsubscribeTarget groupId, targetId, =>
-      redis.sadd "groups/#{groupId}", targetId
+      redis.sadd "interval/groups/#{groupId}", targetId
       redis.mset
-        "active/#{groupId}": true
-        "active/#{targetId}": true
+        "interval/active/#{groupId}": true
+        "interval/active/#{targetId}": true
+        "interval/time/#{targetId}": intervalTime
 
       job = @queue.create('interval', {
           groupId: groupId,
-          targetId: targetId,
-          intervalTime: intervalTime
+          targetId: targetId
         }).
         removeOnComplete(true).
         attempts(process.env.INTERVAL_ATTEMPTS ? 999).
         ttl(process.env.INTERVAL_TTL ? 10000).
         save =>
-          redis.set "job/#{targetId}", job.id
+          redis.sadd "interval/job/#{targetId}", job.id
           debug ' - created job', job.id, 'for', targetId
 
   unsubscribeTarget: (groupId, targetId, callback) =>
     return if !targetId
 
-    redis.srem "groups/#{groupId}", targetId
-    redis.del "active/#{targetId}"
+    redis.srem "interval/groups/#{groupId}", targetId
+    redis.del "interval/active/#{targetId}"
 
-    redis.get "job/#{targetId}", (err, jobId) =>
-      debug 'unsubscribeTarget group', groupId, 'target', targetId, 'job', jobId
-      redis.del "job/#{targetId}"
+    redis.smembers "interval/job/#{targetId}", (err, jobIds) =>
+      _.each jobIds, (jobId) =>
+        debug 'unsubscribeTarget group', groupId, 'target', targetId, 'job', jobId
+        redis.srem "interval/job/#{targetId}", jobId
 
-      if jobId
-        kue.Job.get jobId, (err, job) =>
-          return if err
-          job.remove()
+        if jobId
+          kue.Job.get jobId, (err, job) =>
+            return if err
+            job.remove()
 
       callback() if callback
 
   unsubscribeGroup: (groupId) =>
     debug 'unsubscribeGroup', groupId
-    redis.del "active/#{groupId}"
-    redis.smembers "groups/#{groupId}", (err, targetIds) =>
+    redis.set "interval/active/#{groupId}", false
+    redis.smembers "interval/groups/#{groupId}", (err, targetIds) =>
       debug 'unsubscribeGroup found', err, targetIds
       _.each targetIds, (targetId) =>
         @unsubscribeTarget groupId, targetId
