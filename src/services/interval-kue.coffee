@@ -1,6 +1,4 @@
 _ = require 'lodash'
-kue = require('kue')
-redis = new (require 'ioredis');
 debug = require('debug')('interval-service')
 
 class IntervalKue
