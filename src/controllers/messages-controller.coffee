@@ -7,7 +7,9 @@ class MessagesController
 
   subscribe: (req, res) =>
     debug 'subscribe', req.params
-    @intervalService.subscribeTarget req.params
+    {targetId} = req.params
+    {repeat} = req.body.payload
+    @intervalService.subscribeTarget targetId: targetId, intervalTime: repeat
     res.status(201).end() if res
 
   unsubscribe: (req, res) =>
