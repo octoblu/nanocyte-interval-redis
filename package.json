@@ -1,6 +1,6 @@
 {
   "name": "nanocyte-interval-redis",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Manage interval subscriptions in redis for use by nanocyte-interval-service",
   "main": "server.js",
   "scripts": {
@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/octoblu/nanocyte-interval-redis#readme",
   "dependencies": {
+    "async": "^1.4.2",
     "body-parser": "^1.13.3",
     "coffee-script": "^1.10.0",
     "cron-parser": "^1.0.0",

@@ -1,10 +1,13 @@
 _ = require 'lodash'
+async = require 'async'
 debug = require('debug')('interval-service')
 
 class IntervalKue
   constructor: (dependencies={}) ->
-    @REDIS_PORT         = process.env.REDIS_PORT ? 6379
-    @REDIS_HOST         = process.env.REDIS_HOST ? 'localhost'
+    @INTERVAL_TTL      = process.env.INTERVAL_TTL ? 10000
+    @INTERVAL_ATTEMPTS = process.env.INTERVAL_ATTEMPTS ? 999
+    @REDIS_PORT        = process.env.REDIS_PORT ? 6379
+    @REDIS_HOST        = process.env.REDIS_HOST ? 'localhost'
 
     @kue = dependencies.kue ? require 'kue'
     IORedis = dependencies.IORedis ? require 'ioredis'
@@ -15,52 +18,53 @@ class IntervalKue
         port: @REDIS_PORT
         host: @REDIS_HOST
 
-  subscribeTarget: (groupId, targetId, intervalTime, cronString) =>
-    debug 'subscribeTarget group', groupId, 'target', targetId, 'interval', intervalTime
+  calculateNextCronInterval: (cronString, currentDate) =>
+    currentDate ?= new Date
+    timeDiff = 0
+    parser = cronParser.parseExpression cronString, currentDate: currentDate
 
-    @unsubscribeTarget groupId, targetId, =>
-      @redis.sadd "interval/groups/#{groupId}", targetId
+    while timeDiff <= 0
+      nextDate = parser.next()
+      nextDate.setMilliseconds 0
+      timeDiff = nextDate - currentDate
+      debug 'this is the next time', timeDiff, nextDate.getTime()
+
+    return timeDiff
+
+  subscribeTarget: (params, callback=->) =>
+    debug 'subscribeTarget target', params
+    params.intervalTime = calculateNextCronInterval cronString if params.cronString
+
+    @unsubscribeTarget params.targetId, =>
       @redis.mset
-        "interval/active/#{groupId}": true
-        "interval/active/#{targetId}": true
-        "interval/time/#{targetId}": intervalTime
-        "interval/cron/#{targetId}": cronString
+        "interval/active/#{params.targetId}": true
+        "interval/time/#{params.targetId}": params.intervalTime
+        "interval/cron/#{params.targetId}": params.cronString
 
-      job = @queue.create('interval', {
-          groupId: groupId,
-          targetId: targetId
-        }).
+      jobDelay = if params.cronString then params.intervalTime else 0
+      job = @queue.create('interval', targetId: params.targetId ).
+        delay(jobDelay).
         removeOnComplete(true).
-        attempts(process.env.INTERVAL_ATTEMPTS ? 999).
-        ttl(process.env.INTERVAL_TTL ? 10000).
-        save =>
-          @redis.sadd "interval/job/#{targetId}", job.id
-          debug ' - created job', job.id, 'for', targetId
+        attempts(@INTERVAL_ATTEMPTS).
+        ttl(@INTERVAL_TTL).
+        save (err) =>
+          @redis.sadd "interval/job/#{params.targetId}", job.id
+          debug ' - created job', job.id, 'for', params.targetId
+          callback err
 
-  unsubscribeTarget: (groupId, targetId, callback) =>
-    return if !targetId
-
-    @redis.srem "interval/groups/#{groupId}", targetId
+  unsubscribeTarget: (targetId, callback=->) =>
+    return if !targetId?
+    removeJob = (jobId) => @removeTargetJob(targetId,jobId)
     @redis.del "interval/active/#{targetId}"
-
     @redis.smembers "interval/job/#{targetId}", (err, jobIds) =>
-      _.each jobIds, (jobId) =>
-        debug 'unsubscribeTarget group', groupId, 'target', targetId, 'job', jobId
-        @redis.srem "interval/job/#{targetId}", jobId
+      async.each jobIds, removeJob, callback
 
-        if jobId
-          @kue.Job.get jobId, (err, job) =>
-            return if err
-            job.remove()
-
-      callback() if callback
-
-  unsubscribeGroup: (groupId) =>
-    debug 'unsubscribeGroup', groupId
-    @redis.set "interval/active/#{groupId}", false
-    @redis.smembers "interval/groups/#{groupId}", (err, targetIds) =>
-      debug 'unsubscribeGroup found', err, targetIds
-      _.each targetIds, (targetId) =>
-        @unsubscribeTarget groupId, targetId
+  removeTargetJob: (targetId, jobId) =>
+    return if !jobId?
+    debug 'unsubscribeTarget target', targetId, 'job', jobId
+    @redis.srem "interval/job/#{targetId}", jobId
+    @kue.Job.get jobId, (err, job) =>
+      return if err
+      job.remove()
 
 module.exports = IntervalKue

@@ -12,9 +12,9 @@ app.use morgan 'dev'
 app.use errorHandler()
 app.use meshbluHealthcheck()
 
-app.post '/interval/:groupId/:targetId/:intervalTime', messagesController.subscribeInterval
-app.post '/cron/:groupId/:targetId/:cron', messagesController.subscribeCron
-app.delete '/:groupId', messagesController.unsubscribe
+app.post '/interval/:targetId/:intervalTime', messagesController.subscribe
+app.post '/cron/:targetId/:cron', messagesController.subscribe
+app.delete '/:targetId', messagesController.unsubscribe
 
 server = app.listen PORT, ->
   host = server.address().address
