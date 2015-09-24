@@ -7,14 +7,12 @@ MeshbluConfig = require 'meshblu-config'
 meshbluAuthDevice = require 'express-meshblu-auth-device'
 meshbluHealthcheck = require 'express-meshblu-healthcheck'
 IntervalService = require './src/services/interval-kue'
-CronController = require './src/controllers/cron-controller'
-IntervalController = require './src/controllers/interval-controller'
+MessageController = require './src/controllers/message-controller'
 
 PORT  = process.env.PORT ? 80
 
 intervalService = new IntervalService()
-cronController = new CronController intervalService: intervalService
-intervalController = new IntervalController intervalService: intervalService
+messageController = new MessageController intervalService: intervalService
 
 meshbluJSON = new MeshbluConfig().toJSON()
 
@@ -27,9 +25,7 @@ app.use meshbluAuthDevice meshbluJSON
 app.use bodyParser.urlencoded limit: '50mb', extended : true
 app.use bodyParser.json limit : '50mb'
 
-app.post '/interval/:targetId', intervalController.create
-app.post '/cron/:targetId/:cron', cronController.subscribe
-app.delete '/:targetId', intervalController.destroy
+app.post '/message', messageController.message
 
 server = app.listen PORT, ->
   host = server.address().address
