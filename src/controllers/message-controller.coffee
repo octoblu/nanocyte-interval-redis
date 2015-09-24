@@ -12,7 +12,7 @@ class MessageController
       when 'register-cron' then @register req, res
       when 'unregister-interval' then @unregister req, res
       when 'unregister-cron' then @unregister req, res
-      else return res.status(501).end() if res
+      else res.status(501).end() if res
 
   register: (req, res) =>
     debug 'register', req?.body?.payload
