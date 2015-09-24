@@ -7,7 +7,7 @@ class MessageController
 
   message: (req, res) =>
     debug 'message request body', req?.body
-    switch req.body.topic
+    switch req?.body?.topic
       when 'register-interval' then @register req, res
       when 'register-cron' then @register req, res
       when 'unregister-interval' then @unregister req, res
