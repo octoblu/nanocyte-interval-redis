@@ -21,7 +21,6 @@ class IntervalKue
 
   subscribe: (params, callback=->) =>
     debug 'subscribe', params
-    debug 'yeah params!', (!params?.sendTo?), (!params?.nodeId?)
     return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
 
     jobDelay = if params.cronString then @calculateNextCronInterval params.cronString else 0
