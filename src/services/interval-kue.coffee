@@ -19,41 +19,43 @@ class IntervalKue
         port: @REDIS_PORT
         host: @REDIS_HOST
 
-  subscribeTarget: (params, callback=->) =>
-    debug 'subscribeTarget target', params
+  subscribe: (params, callback=->) =>
+    debug 'subscribe', params
+    debug 'yeah params!', (!params?.sendTo?), (!params?.nodeId?)
+    return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
+
     jobDelay = if params.cronString then @calculateNextCronInterval params.cronString else 0
 
-    @unsubscribeTarget params.targetId, (err) =>
+    @unsubscribe params, (err) =>
+      debug 'called unsubscribe', err
       return callback err if err?
       @redis.mset
-        "interval/active/#{params.targetId}": true
-        "interval/fromId/#{params.targetId}": params.fromId
-        "interval/time/#{params.targetId}": params.intervalTime
-        "interval/cron/#{params.targetId}": params.cronString
+        "interval/active/#{params.sendTo}/#{params.nodeId}": true
+        "interval/time/#{params.sendTo}/#{params.nodeId}": params.intervalTime
+        "interval/cron/#{params.sendTo}/#{params.nodeId}": params.cronString
 
-      @createJob targetId: params.targetId, jobDelay, (err, newJob) =>
-          @redis.sadd "interval/job/#{params.targetId}", newJob.id if !err?
-          debug ' - created job', newJob.id, 'for', params.targetId
+      @createJob {sendTo: params.sendTo, nodeId: params.nodeId}, jobDelay, (err, newJob) =>
+          @redis.sadd "interval/job/#{params.sendTo}/#{params.nodeId}", newJob.id if !err?
+          debug ' - created job', newJob.id, 'for', params.nodeId
           callback err
 
-  unsubscribeTarget: (targetId, callback=->) =>
-    debug 'unsubscribing', targetId
-    return if !targetId?
+  unsubscribe: (params, callback=->) =>
+    debug 'unsubscribe', params
+    return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
 
-    @redis.del "interval/active/#{targetId}"
-    @redis.del "interval/fromId/#{targetId}"
-    @redis.del "interval/time/#{targetId}"
-    @redis.del "interval/cron/#{targetId}"
+    @redis.del "interval/active/#{params.sendTo}/#{params.nodeId}"
+    @redis.del "interval/time/#{params.sendTo}/#{params.nodeId}"
+    @redis.del "interval/cron/#{params.sendTo}/#{params.nodeId}"
 
-    removeJob = (jobId, callback) => @removeTargetJob(targetId, jobId, callback)
-    @redis.smembers "interval/job/#{targetId}", (err, jobIds) =>
+    curryJob = (jobId, callback) => @removeJob(params, jobId, callback)
+    @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (err, jobIds) =>
       return callback err if err?
-      async.each jobIds, removeJob, callback
+      async.each jobIds, curryJob, callback
 
-  removeTargetJob: (targetId, jobId, callback) =>
-    return if !jobId?
-    debug 'unsubscribeTarget target', targetId, 'job', jobId
-    @redis.srem "interval/job/#{targetId}", jobId
+  removeJob: (params, jobId, callback) =>
+    debug 'removeJob', params, 'for jobId', jobId
+    return callback(new Error 'jobId not defined') if !jobId?
+    @redis.srem "interval/job/#{params.sendTo}/#{params.nodeId}", jobId
     @kue.Job.get jobId, (err, job) =>
       job.remove() if !err?
       callback err
