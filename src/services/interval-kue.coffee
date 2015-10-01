@@ -32,6 +32,7 @@ class IntervalKue
         "interval/active/#{params.sendTo}/#{params.nodeId}": true
         "interval/time/#{params.sendTo}/#{params.nodeId}": params.intervalTime
         "interval/cron/#{params.sendTo}/#{params.nodeId}": params.cronString
+        "interval/nonce/#{params.sendTo}/#{params.nodeId}": params.nonce
 
       @createJob {sendTo: params.sendTo, nodeId: params.nodeId}, jobDelay, (err, newJob) =>
           @redis.sadd "interval/job/#{params.sendTo}/#{params.nodeId}", newJob.id if !err?
@@ -42,14 +43,19 @@ class IntervalKue
     debug 'unsubscribe', params
     return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
 
-    @redis.del "interval/active/#{params.sendTo}/#{params.nodeId}"
-    @redis.del "interval/time/#{params.sendTo}/#{params.nodeId}"
-    @redis.del "interval/cron/#{params.sendTo}/#{params.nodeId}"
+    @redis.get "interval/nonce/#{params.sendTo}/#{params.nodeId}", (err, nonce) =>
 
-    curryJob = (jobId, callback) => @removeJob(params, jobId, callback)
-    @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (err, jobIds) =>
-      return callback err if err?
-      async.each jobIds, curryJob, callback
+      return callback(new Error 'nonce does not match') if err or (nonce != params.nonce)
+
+      @redis.del "interval/active/#{params.sendTo}/#{params.nodeId}"
+      @redis.del "interval/time/#{params.sendTo}/#{params.nodeId}"
+      @redis.del "interval/cron/#{params.sendTo}/#{params.nodeId}"
+      @redis.del "interval/nonce/#{params.sendTo}/#{params.nodeId}"
+
+      curryJob = (jobId, callback) => @removeJob(params, jobId, callback)
+      @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (err, jobIds) =>
+        return callback err if err?
+        async.each jobIds, curryJob, callback
 
   removeJob: (params, jobId, callback) =>
     debug 'removeJob', params, 'for jobId', jobId
