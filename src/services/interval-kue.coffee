@@ -25,8 +25,8 @@ class IntervalKue
 
     jobDelay = if params.cronString then @calculateNextCronInterval params.cronString else 0
 
-    @unsubscribe params, (err) =>
-      debug 'called unsubscribe', err
+    @_unsubscribe params, (err) =>
+      debug 'called _unsubscribe', err
       return callback err if err?
       @redis.mset
         "interval/active/#{params.sendTo}/#{params.nodeId}": true
@@ -47,15 +47,7 @@ class IntervalKue
 
       return callback(new Error 'nonce does not match') if err or (nonce != params.nonce)
 
-      @redis.del "interval/active/#{params.sendTo}/#{params.nodeId}"
-      @redis.del "interval/time/#{params.sendTo}/#{params.nodeId}"
-      @redis.del "interval/cron/#{params.sendTo}/#{params.nodeId}"
-      @redis.del "interval/nonce/#{params.sendTo}/#{params.nodeId}"
-
-      curryJob = (jobId, callback) => @removeJob(params, jobId, callback)
-      @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (err, jobIds) =>
-        return callback err if err?
-        async.each jobIds, curryJob, callback
+      @_unsubscribe params, callback
 
   removeJob: (params, jobId, callback) =>
     debug 'removeJob', params, 'for jobId', jobId
@@ -86,5 +78,18 @@ class IntervalKue
       ttl(@INTERVAL_TTL).
       save (err) =>
         callback err, job
+
+  _unsubscribe: (params, callback) =>
+    async.parallel [
+      (next) => @redis.del "interval/active/#{params.sendTo}/#{params.nodeId}", next
+      (next) => @redis.del "interval/time/#{params.sendTo}/#{params.nodeId}", next
+      (next) => @redis.del "interval/cron/#{params.sendTo}/#{params.nodeId}", next
+      (next) => @redis.del "interval/nonce/#{params.sendTo}/#{params.nodeId}", next
+    ], (error) =>
+      curryJob = (jobId, callback) => @removeJob(params, jobId, callback)
+      @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (err, jobIds) =>
+        return callback err if err?
+        async.each jobIds, curryJob, callback
+
 
 module.exports = IntervalKue
