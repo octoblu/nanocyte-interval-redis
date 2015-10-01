@@ -17,13 +17,17 @@ class MessageController
   register: (req, res) =>
     debug 'register', req?.body?.payload
     params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
-    @intervalService.subscribe params
-    res.status(201).end() if res
+    @intervalService.subscribe params, (err) =>
+      debug err if err
+      res.status(501).end() if res and err
+      res.status(201).end() if res
 
   unregister: (req, res) =>
     debug 'unregister', req?.body?.payload
     params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
-    @intervalService.unsubscribe params
-    res.status(201).end() if res
+    @intervalService.unsubscribe params, (err) =>
+      debug err if err
+      res.status(501).end() if res and err
+      res.status(201).end() if res
 
 module.exports = MessageController

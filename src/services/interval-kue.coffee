@@ -22,8 +22,7 @@ class IntervalKue
   subscribe: (params, callback=->) =>
     debug 'subscribe', params
     return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
-
-    jobDelay = if params.cronString then @calculateNextCronInterval params.cronString else 0
+    params.intervalTime = @calculateNextCronInterval params.cronString if params.cronString
 
     @_unsubscribe params, (err) =>
       debug 'called _unsubscribe', err
@@ -34,10 +33,10 @@ class IntervalKue
         "interval/cron/#{params.sendTo}/#{params.nodeId}": params.cronString
         "interval/nonce/#{params.sendTo}/#{params.nodeId}": params.nonce
 
-      @createJob {sendTo: params.sendTo, nodeId: params.nodeId}, jobDelay, (err, newJob) =>
-          @redis.sadd "interval/job/#{params.sendTo}/#{params.nodeId}", newJob.id if !err?
-          debug ' - created job', newJob.id, 'for', params.nodeId
-          callback err
+      @createJob _.pick(params, ['sendTo', 'nodeId', 'fireOnce']), params.intervalTime, (err, newJob) =>
+        @redis.sadd "interval/job/#{params.sendTo}/#{params.nodeId}", newJob.id if !err?
+        debug ' - created job', newJob.id, 'for', params.nodeId
+        callback err
 
   unsubscribe: (params, callback=->) =>
     debug 'unsubscribe', params
@@ -86,10 +85,10 @@ class IntervalKue
       (next) => @redis.del "interval/cron/#{params.sendTo}/#{params.nodeId}", next
       (next) => @redis.del "interval/nonce/#{params.sendTo}/#{params.nodeId}", next
     ], (error) =>
-      curryJob = (jobId, callback) => @removeJob(params, jobId, callback)
+      removeJobWithParams = (jobId, callback) => @removeJob(params, jobId, callback)
       @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (err, jobIds) =>
         return callback err if err?
-        async.each jobIds, curryJob, callback
+        async.each jobIds, removeJobWithParams, callback
 
 
 module.exports = IntervalKue
