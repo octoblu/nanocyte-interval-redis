@@ -19,6 +19,7 @@ class MessageController
     params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
     @intervalService.subscribe params, (err) =>
       debug err if err
+      debug 'done register'
       res.status(501).end() if res and err
       res.status(201).end() if res
 
