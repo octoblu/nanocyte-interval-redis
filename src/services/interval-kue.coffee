@@ -20,7 +20,7 @@ class IntervalKue
         host: @REDIS_HOST
 
   subscribe: (params, callback=->) =>
-    debug 'subscribe', params
+    debug 'subscribe', JSON.stringify params
     return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
     return callback(new Error 'noUnsubscribe should also set fireOnce') if params.noUnsubscribe and !params.fireOnce
 
@@ -44,7 +44,7 @@ class IntervalKue
       callback err
 
   unsubscribe: (params, callback=->) =>
-    debug 'unsubscribe', params
+    debug 'unsubscribe', JSON.stringify params
 
     return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
 
@@ -67,7 +67,7 @@ class IntervalKue
         async.each jobIds, removeJobWithParams, callback
 
   removeJob: (params, jobId, callback) =>
-    debug 'removeJob', params, 'for jobId', jobId
+    debug 'removeJob', JSON.stringify params, 'for jobId', jobId
     return callback(new Error 'jobId not defined') if !jobId?
     @redis.srem "interval/job/#{params.sendTo}/#{params.nodeId}", jobId
     @kue.Job.get jobId, (err, job) =>

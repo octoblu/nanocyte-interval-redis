@@ -6,7 +6,7 @@ class MessageController
     {@intervalService} = options
 
   message: (req, res) =>
-    debug 'message request body', req?.body
+    debug 'message request body', JSON.stringify req?.body
     switch req?.body?.topic
       when 'register-interval'   then @register req, res
       when 'register-cron'       then @register req, res
@@ -15,7 +15,7 @@ class MessageController
       else res.status(501).end() if res
 
   register: (req, res) =>
-    debug 'register', req?.body?.payload
+    debug 'register', JSON.stringify req?.body?.payload
     params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
     @intervalService.subscribe params, (err) =>
       debug err if err
@@ -24,7 +24,7 @@ class MessageController
       res.status(201).end() if res
 
   unregister: (req, res) =>
-    debug 'unregister', req?.body?.payload
+    debug 'unregister', JSON.stringify req?.body?.payload
     params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
     @intervalService.unsubscribe params, (err) =>
       debug err if err
