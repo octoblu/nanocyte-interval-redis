@@ -1,6 +1,6 @@
 _ = require 'lodash'
 async = require 'async'
-debug = require('debug')('interval-service')
+debug = require('debug')('nanocyte-interval-redis:interval-kue')
 cronParser = require 'cron-parser'
 
 class IntervalKue

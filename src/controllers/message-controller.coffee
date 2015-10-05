@@ -1,5 +1,5 @@
 _ = require 'lodash'
-debug = require('debug')('nanocyte-interval-redis:interval-controller')
+debug = require('debug')('nanocyte-interval-redis:message-controller')
 
 class MessageController
   constructor: (options={}) ->
