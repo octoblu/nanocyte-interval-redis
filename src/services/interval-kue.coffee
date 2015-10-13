@@ -2,6 +2,7 @@ _ = require 'lodash'
 async = require 'async'
 debug = require('debug')('nanocyte-interval-redis:interval-kue')
 cronParser = require 'cron-parser'
+MeshbluMessage = require '../meshblu-message'
 
 class IntervalKue
   constructor: (dependencies={}) ->
@@ -19,6 +20,8 @@ class IntervalKue
         port: @REDIS_PORT
         host: @REDIS_HOST
 
+    @meshbluMessage = new MeshbluMessage
+
   subscribe: (params, callback=->) =>
     debug 'subscribe', JSON.stringify params
     return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
@@ -26,8 +29,19 @@ class IntervalKue
 
     params.intervalTime = @calculateNextCronInterval params.cronString if params.cronString
     return @_subscribe params, callback if params.noUnsubscribe
+
     @_unsubscribe params, (err) =>
       debug 'called _unsubscribe', err
+
+      if params.intervalTime < 1000
+        @meshbluMessage.message [params.sendTo],
+          topic: 'error'
+          payload:
+            from: params.nodeId
+            message: 'Minimum interval time is 1000ms'
+            timestamp: _.now()
+        return callback new Error('Minimum interval time is 1000ms')
+
       @_subscribe params, callback
 
   _subscribe: (params, callback=->) =>
