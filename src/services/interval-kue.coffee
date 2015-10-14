@@ -2,7 +2,6 @@ _ = require 'lodash'
 async = require 'async'
 debug = require('debug')('nanocyte-interval-redis:interval-kue')
 cronParser = require 'cron-parser'
-MeshbluMessage = require '../meshblu-message'
 
 class IntervalKue
   constructor: (dependencies={}) ->
@@ -13,6 +12,7 @@ class IntervalKue
 
     @kue = dependencies.kue ? require 'kue'
     IORedis = dependencies.IORedis ? require 'ioredis'
+    MeshbluMessage = dependencies.MeshbluMessage ? require '../meshblu-message'
     @redis = new IORedis @REDIS_PORT, @REDIS_HOST
 
     @queue = @kue.createQueue
@@ -28,47 +28,49 @@ class IntervalKue
     return callback(new Error 'noUnsubscribe should also set fireOnce') if params.noUnsubscribe and !params.fireOnce
 
     params.intervalTime = @calculateNextCronInterval params.cronString if params.cronString
-    return @_subscribe params, callback if params.noUnsubscribe
 
-    @_unsubscribe params, (err) =>
-      debug 'called _unsubscribe', err
+    @_unsubscribe params, (error) =>
+      return callback error if error?
 
-      if params.intervalTime < 1000
-        @meshbluMessage.message [params.sendTo],
-          topic: 'error'
-          payload:
-            from: params.nodeId
-            message: 'Minimum interval time is 1000ms'
-            timestamp: _.now()
-        return callback new Error('Minimum interval time is 1000ms')
+      if !params.cronString && params.intervalTime < 1000
+        return errorToMeshblu params, 'Minimum interval time is 1000ms', callback
 
       @_subscribe params, callback
 
   _subscribe: (params, callback=->) =>
-    return callback err if err?
     @redis.mset
       "interval/active/#{params.sendTo}/#{params.nodeId}": true
       "interval/time/#{params.sendTo}/#{params.nodeId}": params.intervalTime
       "interval/cron/#{params.sendTo}/#{params.nodeId}": params.cronString
       "interval/nonce/#{params.sendTo}/#{params.nodeId}": params.nonce
 
-    @createJob _.pick(params, ['sendTo', 'nodeId', 'fireOnce', 'noUnsubscribe']), params.intervalTime, (err, newJob) =>
-      @redis.sadd "interval/job/#{params.sendTo}/#{params.nodeId}", newJob.id if !err?
+    @createJob _.pick(params, ['sendTo', 'nodeId', 'fireOnce', 'noUnsubscribe']), params.intervalTime, (error, newJob) =>
+      @redis.sadd "interval/job/#{params.sendTo}/#{params.nodeId}", newJob.id if !error?
       debug ' - created job', newJob.id, 'for', params.nodeId
-      callback err
+      callback error
+
+  errorToMeshblu: (params, message, callback)=>
+    @meshbluMessage.message [params.sendTo],
+      topic: 'error'
+      payload:
+        from: params.nodeId
+        message: message
+        timestamp: _.now()
+    return callback new Error(message)
 
   unsubscribe: (params, callback=->) =>
     debug 'unsubscribe', JSON.stringify params
 
     return callback(new Error 'nodeId or sendTo not defined') if (!params?.sendTo?) or (!params?.nodeId?)
 
-    @redis.get "interval/nonce/#{params.sendTo}/#{params.nodeId}", (err, nonce) =>
-
-      return callback(new Error 'nonce does not match') if err or (nonce != params.nonce)
-
+    @redis.get "interval/nonce/#{params.sendTo}/#{params.nodeId}", (error, nonce) =>
+      debug 'have error', error if error?
+      debug 'have nonce', nonce
+      return callback(new Error 'nonce does not match') if error or (nonce != params.nonce)
       @_unsubscribe params, callback
 
   _unsubscribe: (params, callback) =>
+    return callback() if params.noUnsubscribe
     async.parallel [
       (next) => @redis.del "interval/active/#{params.sendTo}/#{params.nodeId}", next
       (next) => @redis.del "interval/time/#{params.sendTo}/#{params.nodeId}", next
@@ -76,17 +78,17 @@ class IntervalKue
       (next) => @redis.del "interval/nonce/#{params.sendTo}/#{params.nodeId}", next
     ], (error) =>
       removeJobWithParams = (jobId, callback) => @removeJob(params, jobId, callback)
-      @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (err, jobIds) =>
-        return callback err if err?
+      @redis.smembers "interval/job/#{params.sendTo}/#{params.nodeId}", (error, jobIds) =>
+        return callback error if error?
         async.each jobIds, removeJobWithParams, callback
 
   removeJob: (params, jobId, callback) =>
     debug 'removeJob', JSON.stringify params, 'for jobId', jobId
     return callback(new Error 'jobId not defined') if !jobId?
     @redis.srem "interval/job/#{params.sendTo}/#{params.nodeId}", jobId
-    @kue.Job.get jobId, (err, job) =>
-      job.remove() if !err?
-      callback err
+    @kue.Job.get jobId, (error, job) =>
+      job.remove() if !error?
+      callback error
 
   calculateNextCronInterval: (cronString, currentDate) =>
     currentDate ?= new Date
@@ -107,7 +109,7 @@ class IntervalKue
       removeOnComplete(true).
       attempts(@INTERVAL_ATTEMPTS).
       ttl(@INTERVAL_TTL).
-      save (err) =>
-        callback err, job
+      save (error) =>
+        callback error, job
 
 module.exports = IntervalKue
