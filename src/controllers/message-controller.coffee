@@ -12,7 +12,17 @@ class MessageController
       when 'register-cron'       then @register req, res
       when 'unregister-interval' then @unregister req, res
       when 'unregister-cron'     then @unregister req, res
+      when 'pong'                then @pong req, res
       else res.status(501).end() if res
+
+  pong: (req, res) =>
+    debug 'pong', JSON.stringify req?.body?.payload
+    params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
+    @intervalService.pong params, (err) =>
+      debug err if err
+      debug 'done pong'
+      res.status(501).end() if res and err
+      res.status(201).end() if res
 
   register: (req, res) =>
     debug 'register', JSON.stringify req?.body?.payload

@@ -9,6 +9,7 @@ class IntervalKue
     @INTERVAL_ATTEMPTS = process.env.INTERVAL_ATTEMPTS ? 999
     @REDIS_PORT        = process.env.REDIS_PORT ? 6379
     @REDIS_HOST        = process.env.REDIS_HOST ? 'localhost'
+    @PING_TIMEOUT      = process.env.PING_TIMEOUT ? (1000 * 60 * 60) * 5 # 5 hours
 
     @kue = dependencies.kue ? require 'kue'
     IORedis = dependencies.IORedis ? require 'ioredis'
@@ -21,6 +22,15 @@ class IntervalKue
         host: @REDIS_HOST
 
     @meshbluMessage = new MeshbluMessage
+
+  pong: (params, callback=->) =>
+    debug 'pong', JSON.stringify params
+    params.intervalTime = @calculateNextCronInterval params.cronString if params.cronString
+
+    @_pong params, callback
+
+  _pong: (params, callback=->) =>
+    @redis.setex "interval:pong:#{params.sendTo}:#{params.nodeId}", @PING_TIMEOUT, Date.now(), callback
 
   subscribe: (params, callback=->) =>
     debug 'subscribe', JSON.stringify params
@@ -88,7 +98,7 @@ class IntervalKue
     @redis.srem "interval/job/#{params.sendTo}/#{params.nodeId}", jobId
     @kue.Job.get jobId, (error, job) =>
       job.remove() if !error?
-      callback error
+      callback()
 
   calculateNextCronInterval: (cronString, currentDate) =>
     currentDate ?= new Date
