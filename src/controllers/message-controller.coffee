@@ -16,9 +16,10 @@ class MessageController
       else res.status(501).end() if res
 
   pong: (req, res) =>
-    debug 'pong', JSON.stringify req?.body?.payload
-    params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
-    @intervalService.pong params, (err) =>
+    payload = req.body?.payload || {}
+    payload.sendTo = req.body?.fromUuid
+    debug 'pong', JSON.stringify payload
+    @intervalService.pong payload, (err) =>
       debug err if err
       debug 'done pong'
       res.status(501).end() if res and err
