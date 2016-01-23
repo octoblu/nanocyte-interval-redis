@@ -61,7 +61,7 @@ class IntervalKue
         callback error, job
 
   createUnregisterJob: (data, callback)=>
-    job = @queue.create('register', data).
+    job = @queue.create('unregister', data).
       removeOnComplete(true).
       save (error) =>
         callback error, job
