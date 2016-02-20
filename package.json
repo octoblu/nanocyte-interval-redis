@@ -1,6 +1,6 @@
 {
   "name": "nanocyte-interval-redis",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Manage interval subscriptions in redis for use by nanocyte-interval-service",
   "main": "interval-redis.js",
   "scripts": {

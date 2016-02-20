@@ -17,10 +17,10 @@ messageController = new MessageController intervalService: intervalService
 meshbluJSON = new MeshbluConfig().toJSON()
 
 app = express()
+app.use meshbluHealthcheck()
 app.use cors()
 app.use morgan 'dev'
 app.use errorHandler()
-app.use meshbluHealthcheck()
 app.use meshbluAuthDevice meshbluJSON
 app.use bodyParser.urlencoded limit: '50mb', extended : true
 app.use bodyParser.json limit : '50mb'
@@ -32,3 +32,7 @@ server = app.listen PORT, ->
   port = server.address().port
 
   console.log "Server running on #{host}:#{port}"
+
+process.on 'SIGTERM', =>
+  console.log 'SIGTERM caught, exiting'
+  process.exit 0
