@@ -22,7 +22,7 @@ class MessageController
     @intervalService.pong payload, (err) =>
       debug err if err
       debug 'done pong'
-      res.status(501).end() if res and err
+      res.status(500).end() if res and err
       res.status(201).end() if res
 
   register: (req, res) =>
@@ -31,7 +31,7 @@ class MessageController
     @intervalService.subscribe params, (err) =>
       debug err if err
       debug 'done register'
-      res.status(501).end() if res and err
+      res.status(500).end() if res and err
       res.status(201).end() if res
 
   unregister: (req, res) =>
@@ -39,7 +39,7 @@ class MessageController
     params = _.merge {}, req?.body?.payload, sendTo: req?.body?.fromUuid
     @intervalService.unsubscribe params, (err) =>
       debug err if err
-      res.status(501).end() if res and err
+      res.status(500).end() if res and err
       res.status(201).end() if res
 
 module.exports = MessageController
