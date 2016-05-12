@@ -1,6 +1,6 @@
 {
   "name": "nanocyte-interval-redis",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "Manage interval subscriptions in redis for use by nanocyte-interval-service",
   "main": "interval-redis.js",
   "scripts": {
@@ -30,7 +30,7 @@
     "debug": "^2.2.0",
     "errorhandler": "^1.4.2",
     "express": "^4.13.3",
-    "express-meshblu-auth-device": "^1.0.1",
+    "express-meshblu-auth-device": "^1.3.0",
     "express-meshblu-healthcheck": "^1.0.1",
     "kue": "^0.9.6",
     "lodash": "^3.10.1",
