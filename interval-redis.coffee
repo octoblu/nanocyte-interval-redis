@@ -1,13 +1,14 @@
-cors = require 'cors'
-morgan = require 'morgan'
-express = require 'express'
-bodyParser = require 'body-parser'
-errorHandler = require 'errorhandler'
-MeshbluConfig = require 'meshblu-config'
-meshbluAuthDevice = require 'express-meshblu-auth-device'
+cors               = require 'cors'
+morgan             = require 'morgan'
+express            = require 'express'
+bodyParser         = require 'body-parser'
+errorHandler       = require 'errorhandler'
+MeshbluConfig      = require 'meshblu-config'
+meshbluAuthDevice  = require 'express-meshblu-auth-device'
 meshbluHealthcheck = require 'express-meshblu-healthcheck'
-IntervalService = require './src/services/interval-kue'
-MessageController = require './src/controllers/message-controller'
+IntervalService    = require './src/services/interval-kue'
+MessageController  = require './src/controllers/message-controller'
+expressVersion     = require 'express-package-version'
 
 PORT  = process.env.PORT ? 80
 
@@ -18,6 +19,7 @@ meshbluJSON = new MeshbluConfig().toJSON()
 
 app = express()
 app.use meshbluHealthcheck()
+app.use expressVersion(format: '{"version": "%s"}')
 app.use cors()
 app.use morgan 'dev'
 app.use errorHandler()
